@@ -19,5 +19,5 @@ jobs:
         with:
           source_repo: "https://github.com/alancyber01/smpikhwanul"
           source_branch: "main"
-          destination_repo: "https://${{ secrets.SNYC_TOKEN }}@github.com/YAQ-Balangan/smpikhwanul"
+          destination_repo: "https://alancyber01:${{ secrets.SNYC_TOKEN }}@github.com/YAQ-Balangan/smpikhwanul.git"
           destination_branch: "main"
