@@ -17,7 +17,7 @@ jobs:
       - name: Push to Destination Repo
         uses: wei/git-sync@v3
         with:
-          source_repo: "https://github.com"
+          source_repo: "https://github.com/alancyber01/smpikhwanul"
           source_branch: "main"
-          destination_repo: "https://${{ secrets.SYNC_TOKEN }}@://github.com"
+          destination_repo: "https://${{ secrets.SYNC_TOKEN }}@github.com/YAQ-Balangan/smpikhwanul"
           destination_branch: "main"
