@@ -1793,6 +1793,7 @@ Patuhi aturan berikut secara ketat:
 2. STRUKTUR TEKS:
    - Baris pertama: Wacana (jika ada) yang diawali dengan format: "Wacana untuk soal nomor X sampai Y:"
    - Baris berikutnya: Isi Pertanyaan/Soal.
+   - Jika ada nomor soal misal nomor 1, nomor 2, dst, jadikan nomor tersebut angka saja seperti 1. [soal], dst.
    - Di bawah pertanyaan, tuliskan opsi jawaban dalam format menurun:
      A. [Teks opsi A]
      B. [Teks opsi B]
