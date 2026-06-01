@@ -1,0 +1,23 @@
+name: Sync to First Repository
+
+on:
+  push:
+    branches:
+      - main # Ubah ke 'master' jika cabang utama Anda bernama master
+
+jobs:
+  git-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push to Destination Repo
+        uses: wei/git-sync@v3
+        with:
+          source_repo: "https://github.com/alancyber01/smpikhwanul"
+          source_branch: "main"
+          destination_repo: "https://${{ secrets.SYNC_TOKEN }}@github.com/YAQ-Balangan/smpikhwanul"
+          destination_branch: "main"
