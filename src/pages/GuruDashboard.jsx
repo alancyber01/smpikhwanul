@@ -1793,6 +1793,7 @@ Patuhi aturan berikut secara ketat:
 2. STRUKTUR TEKS:
    - Baris pertama: Wacana (jika ada) yang diawali dengan format: "Wacana untuk soal nomor X sampai Y:"
    - Baris berikutnya: Isi Pertanyaan/Soal.
+   - Jika ada nomor soal misal nomor 1, nomor 2, dst, jadikan nomor tersebut angka saja seperti 1. [soal], dst.
    - Di bawah pertanyaan, tuliskan opsi jawaban dalam format menurun:
      A. [Teks opsi A]
      B. [Teks opsi B]
@@ -3303,18 +3304,40 @@ Patuhi aturan berikut secara ketat:
                       };
 
                       const kelasStr = String(folder.kelas).toUpperCase();
-                      const isSMP =
-                        kelasStr.includes("VII") ||
-                        kelasStr.includes("VIII") ||
-                        kelasStr.includes("IX") ||
-                        kelasStr.includes("SMP") ||
-                        kelasStr.includes("MTS");
+
+                      // Deteksi spesifik (Hati-hati: VIII mengandung kata VII)
+                      const isKelas8 = kelasStr.includes("VIII");
+                      const isKelas7 = kelasStr.includes("VII") && !isKelas8;
+                      const isKelas9 = kelasStr.includes("IX");
+                      const isSMPUmum =
+                        kelasStr.includes("SMP") || kelasStr.includes("MTS");
+
                       const hasMipa =
                         kelasStr.includes("MIPA") || kelasStr.includes("IPA");
                       const hasIps = kelasStr.includes("IPS");
 
-                      if (isSMP) {
-                        // 1. KELAS SMP / MTS: Biru Modern
+                      // Penentuan Warna
+                      if (isKelas7) {
+                        // Warna Khusus Kelas VII (Contoh: Ungu / Purple)
+                        color = {
+                          border:
+                            "hover:border-purple-400 hover:shadow-purple-500/10",
+                          icon: "bg-purple-50 text-purple-600 border-purple-200",
+                          text: "group-hover:text-purple-700",
+                          badge:
+                            "bg-purple-50 text-purple-700 border-purple-200",
+                        };
+                      } else if (isKelas8) {
+                        // Warna Khusus Kelas VIII (Contoh: Cyan / Tosca)
+                        color = {
+                          border:
+                            "hover:border-cyan-400 hover:shadow-cyan-500/10",
+                          icon: "bg-cyan-50 text-cyan-600 border-cyan-200",
+                          text: "group-hover:text-cyan-700",
+                          badge: "bg-cyan-50 text-cyan-700 border-cyan-200",
+                        };
+                      } else if (isKelas9 || isSMPUmum) {
+                        // Warna Kelas IX atau label umum SMP (Tetap Biru Modern)
                         color = {
                           border:
                             "hover:border-blue-400 hover:shadow-blue-500/10",
