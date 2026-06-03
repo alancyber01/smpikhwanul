@@ -146,19 +146,15 @@ const ExamTimer = React.memo(({ initialTime, onTick, onTimeUp, timeRef }) => {
 
     // Timer HANYA boleh bereaksi JIKA sudah pernah berjalan normal
     if (hasStarted.current) {
-      // Auto-save waktu ke server setiap 60 detik (menghemat 75% request)
-      if (timeLeft > 0 && timeLeft % 60 === 0 && timeLeft !== initialTime) {
+      // Bisikkan waktu ke server setiap 15 detik (menghindari spam server)
+      if (timeLeft > 0 && timeLeft % 15 === 0 && timeLeft !== initialTime) {
         onTick(timeLeft);
       }
 
       // Jika waktu benar-benar habis dari hitungan mundur normal
       if (timeLeft <= 0) {
-        hasStarted.current = false; // Kunci agar timer berhenti
-        const randomDelay = Math.floor(Math.random() * 7000);
-
-        setTimeout(() => {
-          onTimeUp();
-        }, randomDelay);
+        hasStarted.current = false; // Kunci agar tidak terpanggil berkali-kali
+        onTimeUp();
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -446,8 +442,7 @@ const SiswaDashboard = () => {
     };
 
     fetchData(false);
-    // Diubah menjadi 5 menit (300000 ms) agar hemat kuota request
-    const intervalId = setInterval(() => fetchData(true), 300000);
+    const intervalId = setInterval(() => fetchData(true), 30000);
     return () => clearInterval(intervalId);
   }, [user, userKelasFull, userTingkat, userJurusan, userTingkatJurusan]);
 
@@ -471,68 +466,41 @@ const SiswaDashboard = () => {
       console.warn("TERDETEKSI KECURANGAN:", jenisPelanggaran);
 
       let currentPelanggaran = pelanggaranRef.current;
-      const username = getVal(user, "Username");
+      const username = getVal(user, "Username"); // <-- MURNI PAKAI USERNAME
       const examId = getVal(activeExamRef.current, "ID");
 
       if (currentPelanggaran === 0) {
-        // TAHAP 1: PERINGATAN SAJA (Toleransi 1x)
         pelanggaranRef.current = 1;
+        isLockedRef.current = true;
+
         setPelanggaran(1);
+        setTimeLeft(timeLeftRef.current);
+        setIsLocked(true);
 
-        // Memunculkan Pop-up Notif tanpa mengunci layar
-        showAlert(
-          "warning",
-          "Peringatan",
-          `Sistem mendeteksi aktivitas di luar ujian (Panggilan, Notifikasi, atau Keluar Aplikasi). \n\nSolusi yang bisa dicoba, tarik bilah notifikasi & AKTIFKAN fitur "JANGAN GANGGU" di HP kalian untuk mencegah gangguan dari luar. \n\nMohon berhati-hati, ini adalah PERINGATAN PERTAMA. Jika terulang, layar ujian akan dikunci!`,
-        );
-
-        // Simpan status tetap ACTIVE ke database tapi poin pelanggaran naik 1
+        // FORMAT LAMA YANG AMAN
         await api.saveSesi(
           username,
           examId,
           answersRef.current,
           timeLeftRef.current,
           1,
-          "ACTIVE",
-        );
-
-        setTimeout(() => {
-          isProcessing = false;
-        }, 3000);
-      } else if (currentPelanggaran === 1) {
-        // TAHAP 2: TERKUNCI (Harus dibuka oleh Guru)
-        pelanggaranRef.current = 2;
-        isLockedRef.current = true;
-
-        setPelanggaran(2);
-        setTimeLeft(timeLeftRef.current);
-        setIsLocked(true);
-
-        await api.saveSesi(
-          username,
-          examId,
-          answersRef.current,
-          timeLeftRef.current,
-          2,
           "LOCKED",
         );
 
         setTimeout(() => {
           isProcessing = false;
         }, 2000);
-      } else if (currentPelanggaran >= 2) {
-        // TAHAP 3: DISKUALIFIKASI (Ngeyel setelah dibuka kuncinya)
-        pelanggaranRef.current = 3;
+      } else if (currentPelanggaran >= 1) {
+        pelanggaranRef.current = 2;
         isLockedRef.current = true;
 
-        setPelanggaran(3);
-
+        setPelanggaran(2);
         await api.saveSesi(
           username,
           examId,
           answersRef.current,
           timeLeftRef.current,
-          3,
+          2,
           "DISQUALIFIED",
         );
         executeEndExam(true, "Diskualifikasi");
@@ -569,7 +537,7 @@ const SiswaDashboard = () => {
         !document.webkitFullscreenElement &&
         !document.msFullscreenElement
       ) {
-        console.log("Siswa keluar dari mode Fullscreen");
+        triggerLock("Menekan ESC / Keluar Fullscreen");
       }
     };
 
@@ -580,29 +548,17 @@ const SiswaDashboard = () => {
       }
     };
 
-    // FUNGSI BARU: Menangkap Swipe/Back HP
-    const handlePopState = (e) => {
-      if (activeExamRef.current && !isSubmittingRef.current) {
-        // 1. Jebak browser agar tetap di halaman ujian (tidak benar-benar back)
-        window.history.pushState({ page: "ujian" }, "", window.location.href);
-
-        // 2. Ubah fungsi swipe/tombol back menjadi mundur ke soal sebelumnya
-        setCurrentSoalIndex((prev) => Math.max(0, prev - 1));
-      }
-    };
-
-    window.addEventListener("resize", handleResize);
+    window.addEventListener("resize", handleResize); // KODE BARU
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("blur", handleBlur);
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
     document.addEventListener("msfullscreenchange", handleFullscreenChange);
     window.addEventListener("beforeunload", handleBeforeUnload);
-    window.addEventListener("popstate", handlePopState); // <-- Listener Swipe Aktif
 
     return () => {
-      window.removeEventListener("resize", handleResize);
-      clearTimeout(resizeTimeout);
+      window.removeEventListener("resize", handleResize); // KODE BARU
+      clearTimeout(resizeTimeout); // KODE BARU
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("blur", handleBlur);
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
@@ -615,16 +571,14 @@ const SiswaDashboard = () => {
         handleFullscreenChange,
       );
       window.removeEventListener("beforeunload", handleBeforeUnload);
-      window.removeEventListener("popstate", handlePopState); // <-- Listener Swipe Dimatikan
     };
   }, [user]);
 
   // 3. POLLING BUKA KUNCI DARI GURU
   useEffect(() => {
     if (!activeExam || !isLocked) return;
-    // Diubah menjadi 15 detik untuk siswa yang sedang terkunci
     const interval = setInterval(async () => {
-      const username = getVal(user, "Username");
+      const username = getVal(user, "Username"); // <-- MURNI PAKAI USERNAME
       const examId = getVal(activeExam, "ID");
       try {
         const sesi = await api.getSesi(username, examId);
@@ -699,10 +653,6 @@ const SiswaDashboard = () => {
     setLoadingSoal(true);
     setIsMobileDrawerOpen(false);
     setRaguRagu({});
-
-    // === MENGAKTIFKAN JEBAKAN HISTORY AGAR SWIPE HP BERFUNGSI ===
-    window.history.pushState({ page: "ujian" }, "", window.location.href);
-    // ==============================================================
 
     try {
       const docElm = document.documentElement;
@@ -816,12 +766,6 @@ const SiswaDashboard = () => {
   // 5. KALKULASI SKOR & SUBMIT (FINAL FIX)
   const executeEndExam = async (isForced, forcedStatus = "Selesai") => {
     setIsSubmitting(true);
-
-    // TAMBAHAN 1: Hapus timer save yang masih nyangkut di background agar tidak jadi sesi hantu
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-
     let skorSiswa = 0;
     let benarCount = 0;
     let detailJawabanArray = [];
@@ -884,14 +828,6 @@ const SiswaDashboard = () => {
       // 1. Simpan nilai ke Supabase
       await api.create("Nilai", dataNilai);
 
-      // TAMBAHAN 2: Tarik ulang data nilai terbaru secara instan agar langsung muncul di halaman Hasil Ujian
-      try {
-        const finalNilai = await api.getNilaiSiswa(getVal(user, "Username"));
-        setMyResults(finalNilai);
-      } catch (e) {
-        console.warn("Gagal tarik nilai instan", e);
-      }
-
       // 2. Hapus sesi (Dibungkus try-catch pisah, agar jika gagal, nilai TETAP TERSIMPAN)
       try {
         await api.deleteSesi(
@@ -909,14 +845,6 @@ const SiswaDashboard = () => {
       setCurrentSoalIndex(0);
       setIsMobileDrawerOpen(false);
       setActiveTab("nilai");
-
-      // ==========================================
-      // [KODE BARU] AUTO REFRESH SETELAH 3 DETIK
-      // ==========================================
-      setTimeout(() => {
-        window.location.reload();
-      }, 5000); // 5000 milidetik = 5 detik
-      // ==========================================
 
       try {
         if (
@@ -940,19 +868,19 @@ const SiswaDashboard = () => {
         showAlert(
           "danger",
           "Diskualifikasi!",
-          "Ujian Anda dihentikan paksa karena telah keluar dari halaman ujian berulang kali. Halaman akan dimuat ulang...",
+          "Ujian Anda dihentikan paksa karena telah keluar dari halaman ujian berulang kali.",
         );
       } else if (isForced) {
         showAlert(
           "info",
           "Waktu Habis!",
-          "Waktu ujian Anda telah habis dan jawaban berhasil disimpan. Halaman akan dimuat ulang dalam 3 detik...",
+          "Waktu ujian Anda telah habis dan jawaban berhasil disimpan.",
         );
       } else {
         showAlert(
           "success",
           "Ujian Selesai",
-          "Berhasil disubmit! Silahkan periksa halaman nilai Anda.",
+          "Berhasil disubmit! Silakan periksa nilai Anda.",
         );
       }
     } catch (err) {
@@ -1177,36 +1105,6 @@ const SiswaDashboard = () => {
               </button>
             </div>
 
-            {/* === KODE BARU: TOMBOL FULLSCREEN MANUAL === */}
-            <button
-              onClick={() => {
-                try {
-                  const docElm = document.documentElement;
-                  if (
-                    !document.fullscreenElement &&
-                    !document.webkitFullscreenElement
-                  ) {
-                    if (docElm.requestFullscreen)
-                      docElm.requestFullscreen().catch(() => {});
-                    else if (docElm.webkitRequestFullscreen)
-                      docElm.webkitRequestFullscreen();
-                    else if (docElm.msRequestFullscreen)
-                      docElm.msRequestFullscreen();
-                  } else {
-                    if (document.exitFullscreen)
-                      document.exitFullscreen().catch(() => {});
-                    else if (document.webkitExitFullscreen)
-                      document.webkitExitFullscreen();
-                  }
-                } catch (e) {}
-              }}
-              className="flex items-center justify-center p-2 md:p-2.5 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors border border-slate-200 active:scale-95"
-              title="Mode Layar Penuh"
-            >
-              <Maximize size={16} className="md:w-[18px] md:h-[18px]" />
-            </button>
-            {/* =========================================== */}
-
             {!isAntiCheatActive && (
               <div className="flex items-center gap-1 bg-amber-100 text-amber-700 px-2 md:px-3 py-2 rounded-xl border border-amber-200 text-[9px] font-black uppercase tracking-widest animate-pulse shadow-sm">
                 <ShieldAlert size={14} />{" "}
@@ -1219,8 +1117,7 @@ const SiswaDashboard = () => {
               initialTime={timeLeft}
               timeRef={timeLeftRef}
               onTick={(newTime) => {
-                // TAMBAHAN: Cek !isSubmittingRef.current agar timer berhenti nge-save saat dikumpulkan
-                if (activeExamRef.current && !isSubmittingRef.current) {
+                if (activeExamRef.current) {
                   api.saveSesi(
                     getVal(user, "Username"),
                     getVal(activeExamRef.current, "ID"),
@@ -1354,12 +1251,8 @@ const SiswaDashboard = () => {
                                 clearTimeout(saveTimeoutRef.current);
                               }
 
-                              // 3. Jeda diubah menjadi 5 detik. Perubahan di layar tetap instan,
-                              // tapi pengiriman ke server ditunda agar bisa ditimpa jika siswa berubah pikiran.
+                              // 3. Pasang timer: Tunggu 2 detik, kalau siswa tidak ganti jawaban lagi, baru kirim ke server
                               saveTimeoutRef.current = setTimeout(() => {
-                                // TAMBAHKAN BARIS INI: Jangan nge-save kalau siswa sedang proses submit
-                                if (isSubmittingRef.current) return;
-
                                 api.saveSesi(
                                   getVal(user, "Username"),
                                   getVal(activeExam, "ID"),
@@ -1368,7 +1261,7 @@ const SiswaDashboard = () => {
                                   pelanggaranRef.current,
                                   isLockedRef.current ? "LOCKED" : "ACTIVE",
                                 );
-                              }, 5000);
+                              }, 2000);
                             }}
                             className={`w-full text-left px-5 py-4 md:px-6 md:py-5 rounded-[1.5rem] border-2 transition-all flex items-start gap-4 md:gap-5 group relative overflow-hidden outline-none ${
                               isSelected
